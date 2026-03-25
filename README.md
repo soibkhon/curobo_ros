@@ -50,7 +50,8 @@ See the [Getting Started Guide](doc/getting-started/) for detailed instructions.
 ### 🚀 Getting Started
 - **[Introduction](doc/getting-started/introduction.md)** - What is ROS, Docker, and cuRobo? (Start here if you're new!)
 - **[Docker Workflow](doc/getting-started/docker-workflow.md)** - How to work efficiently with Docker containers
-- **[Installation Guide](doc/getting-started/installation.md)** - Complete setup guide from installation to first trajectory
+- **[Installation Guide (x86)](doc/getting-started/installation.md)** - Complete setup guide for desktop/laptop
+- **[Installation Guide (Jetson Thor)](doc/getting-started/jetson-installation.md)** - Setup guide for Jetson Thor (aarch64, JetPack 7.x)
 - **[Troubleshooting](doc/getting-started/troubleshooting.md)** - Common issues and solutions
 
 ### 📚 Step-by-Step Tutorials

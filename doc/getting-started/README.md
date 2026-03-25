@@ -5,7 +5,8 @@ Welcome to curobo_ros! This section will help you get up and running quickly.
 ## 📚 Documentation in this Section
 
 ### Quick Start
-- **[Installation](installation.md)** - Install Docker, NVIDIA Container Toolkit, and generate your first trajectory
+- **[Installation (x86)](installation.md)** - Install Docker, NVIDIA Container Toolkit, and generate your first trajectory on a desktop/laptop
+- **[Installation (Jetson Thor)](jetson-installation.md)** - Run curobo_ros on Jetson Thor (aarch64, JetPack 7.x, ROS 2 Humble in Docker)
 - **[Introduction to ROS, Docker & cuRobo](introduction.md)** - New to ROS or Docker? Start here!
 - **[Docker Workflow](docker-workflow.md)** - How to work efficiently with Docker containers
 
@@ -15,9 +16,10 @@ Welcome to curobo_ros! This section will help you get up and running quickly.
 ## 🎯 Learning Path
 
 1. **Complete beginner?** → Start with [Introduction](introduction.md)
-2. **Ready to install?** → Follow [Installation](installation.md)
-3. **Having issues?** → Check [Troubleshooting](troubleshooting.md)
-4. **Want to learn more?** → Continue to [Tutorials](../tutorials/)
+2. **Ready to install on x86?** → Follow [Installation (x86)](installation.md)
+3. **Running on Jetson Thor?** → Follow [Installation (Jetson Thor)](jetson-installation.md)
+4. **Having issues?** → Check [Troubleshooting](troubleshooting.md)
+5. **Want to learn more?** → Continue to [Tutorials](../tutorials/)
 
 ## 📖 What's Next?
 
