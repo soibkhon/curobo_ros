@@ -1,32 +1,33 @@
 # Jetson Thor / aarch64 DEV Dockerfile
-# Base: NVIDIA L4T PyTorch (JetPack 6.x container on JetPack 7.x host, Ubuntu 22.04, ROS Humble)
-# Target GPU: Jetson Thor Blackwell GB10 → sm_100
+# Base: nvcr.io/nvidia/pytorch:25.08-py3 (Ubuntu 24.04, CUDA 13.0, aarch64)
+# Target GPU: Jetson Thor Blackwell GB10 → sm_110
 #
-# Host: Ubuntu 24.04 + JetPack 7.x  (CUDA forward-compat lets r36 containers run on JP7 host)
-# Container: Ubuntu 22.04 + ROS Humble  (same as x86 dev image)
+# Host: Ubuntu 24.04 + JetPack 7.x
+# Container: Ubuntu 24.04 + ROS 2 Jazzy
 #
-# NOTE: Verify the exact L4T image tag on NGC before building:
-#   https://catalog.ngc.nvidia.com/orgs/nvidia/containers/l4t-pytorch
-#   Use the latest r36.x.x tag available (JetPack 6.x, Ubuntu 22.04)
+# Why not Ubuntu 22.04 + ROS Humble:
+#   CUDA 13.0 + Blackwell SM 11.0 PyTorch requires GLIBC 2.38 (Ubuntu 24.04)
+#   Ubuntu 22.04 only has GLIBC 2.35 → incompatible binaries
 #
 # Key differences from x86.dockerfile:
-#   - No manual CUDA install (provided by JetPack/L4T)
-#   - No PyTorch upgrade (L4T ships aarch64-optimized build)
+#   - pytorch:25.08-py3 base (Ubuntu 24.04, no manual CUDA install)
+#   - No PyTorch upgrade (base already has aarch64 build)
 #   - No hpcx (not available on Jetson) → standard openmpi
 #   - NVTX symlinks use aarch64-linux paths
 #   - libusb installed via apt (no amd64 .deb)
+#   - ROS Jazzy instead of ROS Humble (Ubuntu 24.04)
+#   - lsb-release instead of lsb-core (removed in Ubuntu 24.04)
 #   - make -j8 instead of -j32 (Jetson has fewer CPU cores)
-#   - TORCH_CUDA_ARCH_LIST=10.0 for Jetson Thor Blackwell GB10
 
-FROM nvcr.io/nvidia/l4t-pytorch:r36.4.0-pth2.3-py3 AS jetson_base
+FROM nvcr.io/nvidia/pytorch:25.08-py3 AS jetson_base
 
-ARG TORCH_CUDA_ARCH_LIST="10.0"
+ARG TORCH_CUDA_ARCH_LIST="11.0"
 ENV TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST
 
 LABEL maintainer="Lucas Carpentier, Guillaume Dupoiron"
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-ARG ROS_DISTRO=humble
+ARG ROS_DISTRO=jazzy
 
 # GL libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -40,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
 
-# Timezone + build tools
+# Timezone + build tools (lsb-core removed in Ubuntu 24.04, use lsb-release)
 RUN apt-get update && apt-get install -y \
     tzdata \
     software-properties-common \
@@ -57,11 +58,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     git-lfs \
-    glmark2 \
     iputils-ping \
     libeigen3-dev \
     libssl-dev \
-    lsb-core \
+    lsb-release \
     make \
     openssh-client \
     openssh-server \
@@ -114,7 +114,7 @@ RUN ln -sf /usr/include/nvtx3/nvToolsExt.h /usr/local/cuda/targets/aarch64-linux
 
 # First cmake pass to download stdgpu (will fail at thrust version check — expected)
 RUN cd /pkgs/nvblox/nvblox && mkdir -p build && cd build && \
-    TORCH_PREFIX="$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
+    TORCH_PREFIX="$(python3 -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
     cmake .. -DPRE_CXX11_ABI_LINKABLE=ON -DBUILD_TESTING=OFF \
         -DCMAKE_CUDA_ARCHITECTURES="$(echo $TORCH_CUDA_ARCH_LIST | sed 's/\([0-9]\+\)\.\([0-9]\+\)/\1\2/g; s/ /;/g')" \
         -DCMAKE_PREFIX_PATH="$TORCH_PREFIX" 2>&1 || true
@@ -150,9 +150,9 @@ RUN cd /pkgs/nvblox/nvblox/build/_deps/ext_stdgpu-src/src/stdgpu && \
     sed -i 's/            construct_at(\&t, _value);/            stdgpu::construct_at(\&t, _value);/' impl/memory_detail.h && \
     sed -i 's/        destroy_at(\&t);/        stdgpu::destroy_at(\&t);/' impl/memory_detail.h
 
-# Second cmake pass + build + install (j8: Jetson Thor has 12 cores, keep memory safe)
+# Second cmake pass + build + install (j8: keep memory safe on Jetson)
 RUN cd /pkgs/nvblox/nvblox/build && \
-    TORCH_PREFIX="$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
+    TORCH_PREFIX="$(python3 -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
     cmake .. -DPRE_CXX11_ABI_LINKABLE=ON -DBUILD_TESTING=OFF \
         -DCMAKE_CUDA_ARCHITECTURES="$(echo $TORCH_CUDA_ARCH_LIST | sed 's/\([0-9]\+\)\.\([0-9]\+\)/\1\2/g; s/ /;/g')" \
         -DCMAKE_PREFIX_PATH="$TORCH_PREFIX" && \
@@ -169,7 +169,7 @@ RUN sed -i 's|pkg_check_modules(glog REQUIRED libglog)|pkg_check_modules(glog RE
     /pkgs/nvblox_torch/src/nvblox_torch/cpp/CMakeLists.txt
 RUN cd /pkgs/nvblox_torch && mkdir -p src/nvblox_torch/bin && \
     cd src/nvblox_torch/cpp && mkdir build && cd build && \
-    TORCH_PREFIX="$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
+    TORCH_PREFIX="$(python3 -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
     cmake -DCMAKE_PREFIX_PATH="$TORCH_PREFIX" -DCMAKE_CUDA_COMPILER=$(which nvcc) .. && \
     make -j8 && \
     cp libpy_nvblox.so ../../bin/ && \
@@ -181,34 +181,22 @@ RUN git clone https://github.com/opencv/opencv.git /pkgs/opencv
 WORKDIR /pkgs/opencv
 RUN mkdir -p build
 
-RUN python -m pip install \
+RUN python3 -m pip install \
     pyrealsense2 \
     transforms3d
 
-RUN python -m pip install "robometrics[evaluator] @ git+https://github.com/fishbotics/robometrics.git"
+RUN python3 -m pip install "robometrics[evaluator] @ git+https://github.com/fishbotics/robometrics.git"
 
 # libusb via apt (no amd64 .deb on aarch64)
 RUN apt-get update && apt-get install -y libusb-1.0-0 && rm -rf /var/lib/apt/lists/*
 
-##### Installing ROS Humble ######
+##### Installing ROS Jazzy (Ubuntu 24.04 / Noble) ######
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     gnupg2 \
     lsb-release \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add - \
-    && sh -c 'echo "deb http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros2-latest.list'
-
-RUN apt-get update && apt-get install -y \
-    python3-rosdep \
-    ros-humble-joint-state-publisher \
-    ros-humble-joint-state-publisher-gui \
-    ros-humble-nav2-msgs \
-    ros-humble-moveit \
-    ros-humble-realsense2-* \
-    ros-humble-librealsense2* \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*
@@ -220,11 +208,21 @@ RUN apt update && apt install curl -y && \
     apt install /tmp/ros2-apt-source.deb
 
 RUN apt-get update && apt-get install -y \
+    python3-rosdep \
+    ros-jazzy-joint-state-publisher \
+    ros-jazzy-joint-state-publisher-gui \
+    ros-jazzy-nav2-msgs \
+    ros-jazzy-moveit \
+    ros-jazzy-realsense2-* \
+    ros-jazzy-librealsense2* \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
     python3-argcomplete \
     python3-colcon-common-extensions \
-    ros-humble-desktop \
-    ros-humble-pcl-ros \
-    ros-humble-rviz2 \
+    ros-jazzy-desktop \
+    ros-jazzy-pcl-ros \
+    ros-jazzy-rviz2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/ros2_ws/src
@@ -237,7 +235,7 @@ RUN sudo rosdep init && \
 # trajectory_preview
 RUN git clone https://github.com/swri-robotics/trajectory_preview.git
 
-RUN apt remove python3-blinker -y
+RUN apt remove python3-blinker -y || true
 
 # Open3D system deps
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -245,7 +243,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libgl1 \
     libgomp1 \
     python3-pip \
-    ros-humble-tf-transformations \
+    ros-jazzy-tf-transformations \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip && \
@@ -255,25 +253,26 @@ RUN python3 -m pip install --no-cache-dir --force-reinstall --no-deps \
 
 WORKDIR /home/ros2_ws/src
 
-RUN git clone -b humble https://github.com/Box-Robotics/ros2_numpy.git
+RUN git clone -b jazzy https://github.com/Box-Robotics/ros2_numpy.git || \
+    git clone https://github.com/Box-Robotics/ros2_numpy.git
 
 # Build workspace
 WORKDIR /home/ros2_ws
-RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
+RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && \
     colcon build"
 
-RUN source /opt/ros/humble/setup.bash && \
+RUN source /opt/ros/jazzy/setup.bash && \
     cd /home/ros2_ws && \
     . install/local_setup.bash
 
 WORKDIR /home/ros2_ws
 
-RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
+RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc && \
     echo "source /home/ros2_ws/install/setup.bash" >> ~/.bashrc
 
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
-RUN apt-get update && apt-get install -y ros-humble-rmw-cyclonedds-cpp ros-humble-cyclonedds
+RUN apt-get update && apt-get install -y ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-cyclonedds
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 

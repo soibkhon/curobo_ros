@@ -4,10 +4,13 @@ This guide covers running curobo_ros on a **Jetson Thor** in DEV mode.
 
 **Setup:**
 - Host: Ubuntu 24.04 + JetPack 7.x
-- Container: Ubuntu 22.04 + ROS 2 Humble (same as the x86 DEV image)
-- GPU: Blackwell GB10 (sm_100)
+- Container: Ubuntu 24.04 + ROS 2 Jazzy
+- GPU: Blackwell GB10 (sm_110, CUDA 13.0)
 
-The container runs Ubuntu 22.04 inside Docker on a JetPack 7.x host — CUDA forward compatibility allows this.
+> **Why ROS Jazzy and not Humble?**
+> Jetson Thor requires CUDA 13.0 + Blackwell SM 11.0, which needs GLIBC 2.38 (Ubuntu 24.04).
+> ROS Humble only runs on Ubuntu 22.04 (GLIBC 2.35) — these are binary-incompatible.
+> ROS Jazzy is the Ubuntu 24.04 equivalent of Humble: same architecture, same package ecosystem.
 
 ---
 
@@ -68,15 +71,15 @@ Get your API key at [ngc.nvidia.com/setup/api-key](https://ngc.nvidia.com/setup/
 
 ---
 
-## 3. Verify the L4T Base Image Tag
+## 3. Verify the Base Image Tag
 
-Check that the base image tag in the Dockerfile is available:
+Check that the base image is available:
 
 ```bash
-docker pull nvcr.io/nvidia/l4t-pytorch:r36.4.0-pth2.3-py3
+docker pull nvcr.io/nvidia/pytorch:25.08-py3
 ```
 
-If this tag does not exist, browse available tags at [NGC l4t-pytorch](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/l4t-pytorch/tags) and update the `FROM` line in `docker/jetson.dockerfile` accordingly.
+If this tag does not exist, browse available tags at [NGC pytorch](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch/tags) and update the `FROM` line in `docker/jetson.dockerfile` accordingly.
 
 ---
 
