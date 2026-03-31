@@ -100,7 +100,7 @@ class MultiPointPlanner(SinglePlanner):
                 pose_msg.orientation.y,
                 pose_msg.orientation.z,
                 pose_msg.orientation.w
-            ])
+            ], q_xyzw=True)
             waypoints.append(waypoint)
 
         # Extract config parameters

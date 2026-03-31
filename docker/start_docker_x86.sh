@@ -17,8 +17,9 @@ echo "Step 1/3: Choose your GPU architecture"
 echo "---------------------------------------"
 echo "1) Ampere (RTX 30XX series: 3060, 3070, 3080, 3090, A100)"
 echo "2) Ada Lovelace (RTX 40XX series: 4060, 4070, 4080, 4090)"
-echo "3) Turing (RTX 20XX series: 2060, 2070, 2080)"
-echo "4) Volta (Titan V, V100)"
+echo "3) Blackwell (RTX 50XX series: 5070, 5080, 5090)"
+echo "4) Turing (RTX 20XX series: 2060, 2070, 2080)"
+echo "5) Volta (Titan V, V100)"
 echo ""
 read -p "Enter the number corresponding to your GPU: " gpu_choice
 
@@ -32,10 +33,14 @@ case $gpu_choice in
         echo "Selected: Ada Lovelace"
         ;;
     3)
+        GPU_NAME="blackwell"
+        echo "Selected: Blackwell"
+        ;;
+    4)
         GPU_NAME="turing"
         echo "Selected: Turing"
         ;;
-    4)
+    5)
         GPU_NAME="volta"
         echo "Selected: Volta"
         ;;
@@ -219,6 +224,20 @@ fi
 echo ""
 echo "Starting container..."
 
+# CycloneDDS config for host<->container communication
+SCRIPT_DIR_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CYCLONEDDS_CONFIG="${SCRIPT_DIR_ABS}/cyclonedds.xml"
+
+if [ ! -f "$CYCLONEDDS_CONFIG" ]; then
+    echo "⚠️  Warning: CycloneDDS config not found at $CYCLONEDDS_CONFIG"
+    echo "   Host<->container topic discovery may be unreliable."
+    CYCLONEDDS_MOUNT=""
+    CYCLONEDDS_ENV=""
+else
+    CYCLONEDDS_MOUNT="-v ${CYCLONEDDS_CONFIG}:/etc/cyclonedds.xml:ro"
+    CYCLONEDDS_ENV="-e CYCLONEDDS_URI=file:///etc/cyclonedds.xml"
+fi
+
 if ! [[ "$OSTYPE" == "msys" ]]; then
     # Linux
     docker run --name "$CONTAINER_NAME" -it \
@@ -226,11 +245,13 @@ if ! [[ "$OSTYPE" == "msys" ]]; then
         -e NVIDIA_DISABLE_REQUIRE=1 \
         -e NVIDIA_DRIVER_CAPABILITIES=all \
         -e RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
+        $CYCLONEDDS_ENV \
         --device=/dev/:/dev/ \
         --gpus all \
         --network host \
         -e DISPLAY=$DISPLAY \
         -v /tmp/.X11-unix:/tmp/.X11-unix \
+        $CYCLONEDDS_MOUNT \
         $VOLUME_MOUNTS \
         "$IMAGE_TAG"
 else
@@ -241,10 +262,12 @@ else
         -e NVIDIA_DISABLE_REQUIRE=1 \
         -e NVIDIA_DRIVER_CAPABILITIES=all \
         -e RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
+        $CYCLONEDDS_ENV \
         --gpus all \
         --network host \
         -e DISPLAY=$DISPLAY \
         -v /tmp/.X11-unix:/tmp/.X11-unix \
+        $CYCLONEDDS_MOUNT \
         $VOLUME_MOUNTS \
         "$IMAGE_TAG"
 fi

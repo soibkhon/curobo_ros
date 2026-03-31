@@ -76,14 +76,21 @@ class DepthMapCameraStrategy(CameraStrategy):
         if self.camera_pose_static is not None:
             node.get_logger().info("Using static extrinsics from config file")
 
+        # Get base_link frame name from node parameter
+        if node.has_parameter('base_link'):
+            self._base_link = node.get_parameter('base_link').get_parameter_value().string_value
+        else:
+            self._base_link = 'base_link'
+        node.get_logger().info(f"Camera base_link frame: {self._base_link}")
 
+
+
+        # Image processing (must be before subscription)
+        self.bridge = CvBridge()
 
         # Create subscription to depth topic
         self.sub_depth = self.node.create_subscription(
             Image, topic, self.callback_depth_map, 1)
-
-        # Image processing
-        self.bridge = CvBridge()
 
         node.get_logger().info(f"DepthMap camera initialized with depth topic: {topic}")
 
@@ -121,7 +128,7 @@ class DepthMapCameraStrategy(CameraStrategy):
                 try:
                     # Lookup transform from base_link to camera frame
                     t = self.tf_buffer.lookup_transform(
-                        "base_link",
+                        self._base_link,
                         self._frame_id,
                         rclpy.time.Time())
 
@@ -145,7 +152,7 @@ class DepthMapCameraStrategy(CameraStrategy):
 
                 except TransformException as ex:
                     self.node.get_logger().warn(
-                        f'Could not transform base_link to {self._frame_id}: {ex}. Using identity pose.')
+                        f'Could not transform {self._base_link} to {self._frame_id}: {ex}. Using identity pose.')
                     # Fallback to identity pose
                     self.camera_pose = Pose(
                         position=self.tensor_args.to_device([0, 0, 0]),
@@ -164,6 +171,11 @@ class DepthMapCameraStrategy(CameraStrategy):
                 self.node.world_model.process_camera_frames("world", False)
                 torch.cuda.synchronize()
                 self.node.world_model.update_blox_hashes()
+            else:
+                if not hasattr(self, '_world_model_warned'):
+                    self.node.get_logger().warn(
+                        "world_model not available yet, skipping depth integration")
+                    self._world_model_warned = True
 
             self.depth_map = depth_tensor
 

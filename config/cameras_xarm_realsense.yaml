@@ -1,0 +1,38 @@
+cameras:
+  # Intel RealSense D435/D455 mounted on XArm7
+  # The RealSense runs on the host - cuRobo subscribes to its topics via CycloneDDS
+  #
+  # cuRobo uses depth images to build a voxel-based collision map (nvblox/ESDF)
+  # for real-time obstacle avoidance during motion planning.
+  #
+  # Prerequisites:
+  #   1. Launch RealSense on host:
+  #      ros2 launch realsense2_camera rs_launch.py \
+  #          align_depth.enable:=true \
+  #          depth_module.depth_profile:=640x480x30 \
+  #          pointcloud.enable:=false
+  #
+  #   2. Verify depth topic is publishing:
+  #      ros2 topic hz /camera/aligned_depth_to_color/image_raw
+
+  - name: realsense
+    type: depth_camera
+
+    # Depth image topic (aligned to color frame for better extrinsics)
+    topic: /camera/camera/aligned_depth_to_color/image_raw
+
+    # Camera info topic (provides intrinsics: fx, fy, cx, cy)
+    camera_info: /camera/camera/aligned_depth_to_color/camera_info
+
+    # TF frame of the camera (used for extrinsics lookup if extrinsics is empty)
+    frame_id: camera_color_optical_frame
+
+    # Intrinsics: empty = read from camera_info topic (recommended for RealSense)
+    intrinsics: []
+
+    # Extrinsics: camera pose relative to robot base (link_base)
+    # Empty = lookup from TF (recommended if camera is in URDF)
+    # If TF is not available, specify manually as:
+    #   [x, y, z, qw, qx, qy, qz] (cuRobo convention: quaternion w-first)
+    #   or 4x4 transformation matrix
+    extrinsics: []

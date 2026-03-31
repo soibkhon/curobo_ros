@@ -26,7 +26,7 @@ from curobo.geom.types import Cuboid
 
 from curobo_ros.robot.robot_context import RobotContext
 from curobo_ros.core.config_wrapper_motion import ConfigWrapperMotion, ConfigWrapperMPC
-from curobo_ros.planners import PlannerFactory, PlannerManager, ClassicPlanner, MPCPlanner, SinglePlanner
+from curobo_ros.planners import PlannerFactory, PlannerManager, ClassicPlanner, MPCPlanner, SinglePlanner, JointSpacePlanner
 
 
 class UnifiedPlannerNode(Node):
@@ -227,6 +227,18 @@ class UnifiedPlannerNode(Node):
                 response.success = False
                 response.message = "No planner selected"
                 return response
+
+            # Auto-route: if target_joint_positions is populated, use JointSpacePlanner
+            # regardless of the currently active planner (avoids sending a zero target_pose
+            # to ClassicPlanner which would trigger a failing IK call)
+            if (hasattr(request, 'target_joint_positions') and
+                    request.target_joint_positions and
+                    len(request.target_joint_positions) > 0):
+                planner = self.planner_manager.get_planner('joint_space')
+                self._setup_planner(planner)
+                self.get_logger().info(
+                    'Auto-routing to JointSpacePlanner (target_joint_positions detected)'
+                )
 
             # Get robot state - check if start pose is provided in request
             if hasattr(request, 'start_pose') and request.start_pose.position:
@@ -535,10 +547,11 @@ class UnifiedPlannerNode(Node):
         it will be warmed up now. Subsequent switches to the same planner will
         be instant (retrieved from cache).
         """
-        if isinstance(planner, ClassicPlanner):
-            # Warmup MotionGen if not already done
+        if isinstance(planner, SinglePlanner):
+            # Covers ClassicPlanner, JointSpacePlanner, MultiPointPlanner —
+            # all share the same MotionGen instance, no re-warmup needed
             if self.motion_gen is None:
-                self.get_logger().info("On-demand warmup: Classic planner")
+                self.get_logger().info("On-demand warmup: MotionGen-based planner")
                 self._warmup_classic()
 
             planner.set_motion_gen(self.motion_gen)
@@ -555,7 +568,7 @@ class UnifiedPlannerNode(Node):
 
     def _get_planner_config(self, planner) -> dict:
         """Build configuration dictionary for planner."""
-        if isinstance(planner, ClassicPlanner):
+        if isinstance(planner, SinglePlanner):
             return {
                 'max_attempts': self.get_parameter('max_attempts').value,
                 'timeout': self.get_parameter('timeout').value,

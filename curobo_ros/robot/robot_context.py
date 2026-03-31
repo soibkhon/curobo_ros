@@ -25,9 +25,11 @@ class RobotContext:
 
         # Track current strategy name
         self.current_strategy_name = node.get_parameter('robot_type').get_parameter_value().string_value
+        node.get_logger().info(f"robot_type parameter resolved to: '{self.current_strategy_name}'")
 
         # Select initial strategy
         self.robot_strategy = self.select_strategy(node, dt)
+        node.get_logger().info(f"robot_strategy class: {type(self.robot_strategy).__name__}")
         self.ghost_strategy = GhostStrategy(node, dt)
 
         # Create service for dynamic strategy switching
@@ -64,6 +66,9 @@ class RobotContext:
                 # Robot emulator for testing and visualization
                 from curobo_ros.robot.emulator_strategy import EmulatorStrategy
                 robot_strategy = EmulatorStrategy(node, time_dilation_factor)
+            case "xarm":
+                from curobo_ros.robot.xarm_strategy import XArmStrategy
+                robot_strategy = XArmStrategy(node, time_dilation_factor)
             case _:
                 robot_strategy = None
                 node.get_logger().warn(f"Unknown robot type: {robot_type}")
@@ -182,7 +187,7 @@ class RobotContext:
         '''
         with self.strategy_lock:
             if self.robot_strategy is None:
-                return [0.0] * 6  # Default 6-DOF robot
+                return []
             return self.robot_strategy.get_joint_pose()
 
     def get_joint_name(self):
@@ -192,7 +197,7 @@ class RobotContext:
         '''
         with self.strategy_lock:
             if self.robot_strategy is None:
-                return ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
+                return []
             return self.robot_strategy.get_joint_name()
 
     def stop_robot(self):

@@ -92,8 +92,15 @@ def launch_setup(context, *args, **kwargs):
 
     from launch_ros.actions import Node as RosNode
     from launch.actions import DeclareLaunchArgument
+    from launch.conditions import UnlessCondition
 
     gui_enabled = LaunchConfiguration('gui', default='true')
+    robot_type = LaunchConfiguration('robot_type').perform(context)
+
+    # When using an external robot (xarm, doosan), the robot's own launch
+    # already provides robot_state_publisher and joint_state_publisher.
+    # Only launch them for emulator mode.
+    use_builtin_robot_viz = robot_type == 'emulator'
 
     nodes = [
         IncludeLaunchDescription(
@@ -101,31 +108,36 @@ def launch_setup(context, *args, **kwargs):
                 os.path.join(curobo_ros_launch_dir, 'realsense.launch.py')),
             condition=IfCondition(include_realsense_launch)
         ),
+    ]
 
-        # Lancer les nœuds directement au lieu d'inclure launch_rviz2.launch.py
-        # afin d'utiliser le bon URDF
-        RosNode(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            name='robot_state_publisher',
-            output='screen',
-            parameters=[{
-                'robot_description': urdf_content,
-                'base_link': base_link
-            }]
-        ),
+    if use_builtin_robot_viz:
+        nodes.extend([
+            # Robot visualization nodes (only for emulator mode)
+            RosNode(
+                package='robot_state_publisher',
+                executable='robot_state_publisher',
+                name='robot_state_publisher',
+                output='screen',
+                parameters=[{
+                    'robot_description': urdf_content,
+                    'base_link': base_link
+                }]
+            ),
 
-        RosNode(
-            package='joint_state_publisher',
-            executable='joint_state_publisher',
-            name='joint_state_publisher',
-            output='screen',
-            parameters=[{
-                'use_gui': gui_enabled,
-                'source_list': ['/emulator/joint_states'],
-                'base_link': base_link
-            }]
-        ),
+            RosNode(
+                package='joint_state_publisher',
+                executable='joint_state_publisher',
+                name='joint_state_publisher',
+                output='screen',
+                parameters=[{
+                    'use_gui': gui_enabled,
+                    'source_list': ['/emulator/joint_states'],
+                    'base_link': base_link
+                }]
+            ),
+        ])
+
+    nodes.extend([
 
         # Run curobo_gen_traj node
         Node(
@@ -136,7 +148,8 @@ def launch_setup(context, *args, **kwargs):
                 'robot_config_file': LaunchConfiguration('robot_config_file'),
                 'cameras_config_file': LaunchConfiguration('cameras_config_file'),
                 'base_link': base_link,
-                'world_file': LaunchConfiguration('world_file')
+                'world_file': LaunchConfiguration('world_file'),
+                'robot_type': LaunchConfiguration('robot_type'),
             }]
         ),
 
@@ -173,7 +186,7 @@ def launch_setup(context, *args, **kwargs):
         LogInfo(
             msg='All nodes and launch files are launched'
         ),
-    ]
+    ])
 
     # Ajouter l'inclusion conditionnelle de RViz
     nodes.append(
@@ -237,6 +250,12 @@ def generate_launch_description():
         description='Chemin vers le fichier de configuration du monde (world config YAML)'
     )
 
+    declare_robot_type = DeclareLaunchArgument(
+        'robot_type',
+        default_value='emulator',
+        description='Robot strategy type (emulator, xarm, doosan_m1013)'
+    )
+
     return LaunchDescription([
         # Définition des arguments de lancement
         declare_urdf_path,
@@ -245,6 +264,7 @@ def generate_launch_description():
         declare_include_realsense_launch,
         declare_gui,
         declare_world_file,
+        declare_robot_type,
         DeclareLaunchArgument(
             'max_attempts', default_value='2', description='Premier paramètre'
         ),

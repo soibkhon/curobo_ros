@@ -1,7 +1,20 @@
 # Production Dockerfile - Optimized for using curobo_ros
 # This image is smaller and meant for users who want to use curobo_ros without modifying it
 
-FROM nvcr.io/nvidia/pytorch:23.08-py3 AS torch_cuda_base
+FROM nvcr.io/nvidia/pytorch:24.10-py3 AS torch_cuda_base
+
+# Upgrade CUDA toolkit to 12.8 for Blackwell (sm_100) support
+RUN apt-get update && apt-get install -y --no-install-recommends wget gnupg2 && \
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && rm cuda-keyring_1.1-1_all.deb && \
+    apt-get update && apt-get install -y --no-install-recommends cuda-toolkit-12-8 && \
+    rm -rf /var/lib/apt/lists/*
+ENV PATH=/usr/local/cuda-12.8/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH}
+ENV CUDA_HOME=/usr/local/cuda-12.8
+
+# Upgrade PyTorch to 2.6+ for Blackwell (sm_100) arch support
+RUN pip3 install --no-cache-dir --upgrade torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
 LABEL maintainer="Lucas Carpentier, Guillaume Dupoiron"
 LABEL description="Optimized curobo_ros image for production use"
@@ -72,18 +85,76 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /pkgs
-RUN git clone https://github.com/valtsblukis/nvblox.git && \
-    cd nvblox && cd nvblox && mkdir build && cd build && \
-    cmake .. -DPRE_CXX11_ABI_LINKABLE=ON && \
-    make -j32 && make install
+# Install nvblox v0.0.5 (cuRobo-compatible) with CUDA 12.8 patches
+RUN git clone https://github.com/nvidia-isaac/nvblox.git && \
+    cd nvblox && git checkout v0.0.5
 
-RUN git clone https://github.com/Lab-CORO/nvblox_torch.git && \
-    cd nvblox_torch && \
-    sh install.sh $(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)') && \
-    python3 -m pip install -e .
+# Fix NVTX v2/v3 header conflicts for CUDA 12.8
+RUN ln -sf /usr/include/nvtx3/nvToolsExt.h /usr/local/cuda/targets/x86_64-linux/include/nvToolsExt.h && \
+    ln -sf /usr/include/nvtx3/nvToolsExtCuda.h /usr/local/cuda/targets/x86_64-linux/include/nvToolsExtCuda.h && \
+    ln -sf /usr/include/nvtx3/nvToolsExtCudaRt.h /usr/local/cuda/targets/x86_64-linux/include/nvToolsExtCudaRt.h
+
+# First cmake pass to download stdgpu (will fail at thrust version)
+RUN cd /pkgs/nvblox/nvblox && mkdir -p build && cd build && \
+    TORCH_PREFIX="$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
+    cmake .. -DPRE_CXX11_ABI_LINKABLE=ON -DBUILD_TESTING=OFF \
+        -DCMAKE_CUDA_ARCHITECTURES="$(echo $TORCH_CUDA_ARCH_LIST | sed 's/\([0-9]\+\)\.\([0-9]\+\)/\1\2/g; s/ /;/g')" \
+        -DCMAKE_PREFIX_PATH="$TORCH_PREFIX" 2>&1 || true
+
+# Patch stdgpu for CUDA 12.8 compatibility
+RUN printf 'find_path(THRUST_INCLUDE_DIR HINTS /usr/local/cuda/include NAMES thrust/version.h)\n\
+if(THRUST_INCLUDE_DIR)\n\
+    set(THRUST_VERSION "2.3.2")\n\
+    if(NOT TARGET thrust::thrust)\n\
+        add_library(thrust::thrust INTERFACE IMPORTED)\n\
+        set_target_properties(thrust::thrust PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${THRUST_INCLUDE_DIR}")\n\
+    endif()\n\
+endif()\n\
+include(FindPackageHandleStandardArgs)\n\
+find_package_handle_standard_args(thrust REQUIRED_VARS THRUST_INCLUDE_DIR VERSION_VAR THRUST_VERSION)\n' \
+    > /pkgs/nvblox/nvblox/build/_deps/ext_stdgpu-src/cmake/Findthrust.cmake
+
+RUN cd /pkgs/nvblox/nvblox/build/_deps/ext_stdgpu-src/src/stdgpu && \
+    sed -i 's/(forward</(std::forward</g' impl/memory_detail.h impl/unordered_base_detail.cuh \
+        impl/deque_detail.cuh impl/unordered_set_detail.cuh impl/vector_detail.cuh \
+        impl/unordered_map_detail.cuh impl/functional_detail.h functional.h && \
+    sed -i 's/ forward</ std::forward</g' impl/memory_detail.h impl/unordered_base_detail.cuh \
+        impl/deque_detail.cuh impl/unordered_set_detail.cuh impl/vector_detail.cuh \
+        impl/unordered_map_detail.cuh impl/functional_detail.h functional.h && \
+    sed -i 's/~forward</~std::forward</g' impl/functional_detail.h functional.h && \
+    sed -i 's/std::std::forward/std::forward/g' impl/memory_detail.h impl/unordered_base_detail.cuh \
+        impl/deque_detail.cuh impl/unordered_set_detail.cuh impl/vector_detail.cuh \
+        impl/unordered_map_detail.cuh impl/functional_detail.h functional.h && \
+    sed -i 's/    destroy_at(p);/    stdgpu::destroy_at(p);/' impl/memory_detail.h && \
+    sed -i 's/    construct_at(p,/    stdgpu::construct_at(p,/' impl/memory_detail.h && \
+    sed -i 's/            construct_at(\&t, _value);/            stdgpu::construct_at(\&t, _value);/' impl/memory_detail.h && \
+    sed -i 's/        destroy_at(\&t);/        stdgpu::destroy_at(\&t);/' impl/memory_detail.h
+
+# Second cmake pass + build + install
+RUN cd /pkgs/nvblox/nvblox/build && \
+    TORCH_PREFIX="$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
+    cmake .. -DPRE_CXX11_ABI_LINKABLE=ON -DBUILD_TESTING=OFF \
+        -DCMAKE_CUDA_ARCHITECTURES="$(echo $TORCH_CUDA_ARCH_LIST | sed 's/\([0-9]\+\)\.\([0-9]\+\)/\1\2/g; s/ /;/g')" \
+        -DCMAKE_PREFIX_PATH="$TORCH_PREFIX" && \
+    make nvblox_lib nvblox_gpu_hash -j32 && \
+    make install 2>&1 || true
+
+RUN apt-get update && apt-get install -y libunwind-dev && rm -rf /var/lib/apt/lists/*
 
 # Remove python3-blinker to avoid conflicts with pip packages
-RUN apt remove python3-blinker -y
+RUN apt remove python3-blinker -y || true
+
+# Install cuRobo-compatible nvblox_torch from NVlabs
+RUN cd /pkgs && git clone https://github.com/NVlabs/nvblox_torch.git
+RUN sed -i 's|pkg_check_modules(glog REQUIRED libglog)|pkg_check_modules(glog REQUIRED libglog)\nfind_package(glog REQUIRED)\nfind_package(gflags REQUIRED)|' \
+    /pkgs/nvblox_torch/src/nvblox_torch/cpp/CMakeLists.txt
+RUN cd /pkgs/nvblox_torch && mkdir -p src/nvblox_torch/bin && \
+    cd src/nvblox_torch/cpp && mkdir build && cd build && \
+    TORCH_PREFIX="$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')" && \
+    cmake -DCMAKE_PREFIX_PATH="$TORCH_PREFIX" -DCMAKE_CUDA_COMPILER=$(which nvcc) .. && \
+    make -j32 && \
+    cp libpy_nvblox.so ../../bin/ && \
+    cd /pkgs/nvblox_torch && pip install -e . --no-build-isolation
 
 # Install essential Python packages
 RUN python -m pip install \

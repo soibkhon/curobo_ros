@@ -1,16 +1,11 @@
-# Jetson Thor Installation Guide
+# Jetson Orin NX Installation Guide
 
-This guide covers running curobo_ros on a **Jetson Thor** in DEV mode.
+This guide covers running curobo_ros on a **Jetson Orin NX** in DEV mode.
 
 **Setup:**
-- Host: Ubuntu 24.04 + JetPack 7.x
-- Container: Ubuntu 24.04 + ROS 2 Jazzy
-- GPU: Blackwell GB10 (sm_110, CUDA 13.0)
-
-> **Why ROS Jazzy and not Humble?**
-> Jetson Thor requires CUDA 13.0 + Blackwell SM 11.0, which needs GLIBC 2.38 (Ubuntu 24.04).
-> ROS Humble only runs on Ubuntu 22.04 (GLIBC 2.35) — these are binary-incompatible.
-> ROS Jazzy is the Ubuntu 24.04 equivalent of Humble: same architecture, same package ecosystem.
+- Host: Ubuntu 22.04 + JetPack 6.x
+- Container: Ubuntu 22.04 + ROS 2 Humble (same as x86 DEV image)
+- GPU: Ampere GA10B (sm_87)
 
 ---
 
@@ -18,7 +13,7 @@ This guide covers running curobo_ros on a **Jetson Thor** in DEV mode.
 
 | Requirement | Notes |
 |---|---|
-| **Jetson Thor** with JetPack 7.x | Host OS: Ubuntu 24.04 |
+| **Jetson Orin NX** with JetPack 6.x | Host OS: Ubuntu 22.04 |
 | **~40 GB free disk** | Build takes more space on aarch64 |
 | **Docker** with NVIDIA runtime | Comes with JetPack — verify below |
 | **NGC account + API key** | Needed to pull the L4T base image |
@@ -159,7 +154,7 @@ bash build_docker_jetson.sh
 **What happens during the build:**
 1. Pulls L4T PyTorch base (Ubuntu 22.04, CUDA, PyTorch for aarch64)
 2. Installs build tools and OpenMPI
-3. Builds cuRobo from source (compiled for sm_100)
+3. Builds cuRobo from source (compiled for sm_87)
 4. Builds nvblox v0.0.5 with CUDA compatibility patches
 5. Builds nvblox_torch
 6. Installs ROS 2 Humble

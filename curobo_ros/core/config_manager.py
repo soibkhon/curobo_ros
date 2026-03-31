@@ -82,7 +82,8 @@ class ConfigManager:
             'm1013',
             'm1013.yml'
         )
-        self.node.declare_parameter('robot_config_file', default_robot_config)
+        if not self.node.has_parameter('robot_config_file'):
+            self.node.declare_parameter('robot_config_file', default_robot_config)
 
         robot_config_file = self.node.get_parameter('robot_config_file').get_parameter_value().string_value
 

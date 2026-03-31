@@ -3,6 +3,7 @@ from sensor_msgs.msg import JointState
 from builtin_interfaces.msg import Duration
 import threading
 import time
+import yaml
 
 
 class EmulatorStrategy(JointCommandStrategy):
@@ -26,8 +27,15 @@ class EmulatorStrategy(JointCommandStrategy):
         self.position_command = []
         self.vel_command = []
         self.accel_command = []
-        self.joint_names = ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
-        self.current_joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        # Read joint names from robot config file (supports any DOF)
+        self._initial_positions = None
+        joint_names = self._load_joint_names_from_config(node)
+        self.joint_names = joint_names
+        if self._initial_positions is not None:
+            self.current_joint_positions = self._initial_positions
+        else:
+            self.current_joint_positions = [0.0] * len(joint_names)
 
         self.command_index = 0
         self.dt = dt
@@ -40,7 +48,77 @@ class EmulatorStrategy(JointCommandStrategy):
         self.execution_thread = None
         self.stop_execution = threading.Event()
 
-        node.get_logger().info("✅ Emulator strategy initialized - Publishing to /joint_states")
+        # Publish initial joint state so RViz robot matches the emulator's start pose
+        self._publish_current_state()
+
+        # Keep publishing initial state periodically until a trajectory overrides it
+        self._idle_timer = node.create_timer(0.1, self._publish_idle_state)
+
+        node.get_logger().info(
+            f"Emulator strategy initialized with {len(self.joint_names)} joints: {self.joint_names}"
+        )
+
+    def _load_joint_names_from_config(self, node):
+        '''
+        Read joint names and retract config from the robot config YAML file.
+        Sets initial joint positions to retract_config for a collision-free start.
+        Uses the same default config path as ConfigManager for consistency.
+        '''
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            import os
+
+            # Use the same default as ConfigManager
+            default_config = os.path.join(
+                get_package_share_directory('curobo_ros'),
+                'curobo_doosan', 'src', 'm1013', 'm1013.yml'
+            )
+
+            if not node.has_parameter('robot_config_file'):
+                node.declare_parameter('robot_config_file', default_config)
+            config_path = node.get_parameter('robot_config_file').get_parameter_value().string_value
+
+            if not config_path:
+                config_path = default_config
+
+            node.get_logger().info(f"Emulator reading config from: {config_path}")
+
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            cspace = config['robot_cfg']['kinematics']['cspace']
+            joint_names = cspace['joint_names']
+            retract = cspace.get('retract_config', None)
+            if retract and len(retract) == len(joint_names):
+                self._initial_positions = [float(v) for v in retract]
+            else:
+                self._initial_positions = [0.0] * len(joint_names)
+            node.get_logger().info(f"Emulator loaded {len(joint_names)} joints: {joint_names}")
+            node.get_logger().info(f"Emulator initial positions: {self._initial_positions}")
+            return joint_names
+        except Exception as e:
+            node.get_logger().error(f"Could not load joint names from config: {e}")
+            import traceback
+            node.get_logger().error(traceback.format_exc())
+
+        # Fallback: generic 6-joint names
+        node.get_logger().warn("Emulator using default 6-joint configuration")
+        self._initial_positions = None
+        return ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
+
+    def _publish_current_state(self):
+        '''Publish current joint positions to /emulator/joint_states.'''
+        msg = JointState()
+        msg.header.stamp = self.node.get_clock().now().to_msg()
+        msg.name = self.joint_names
+        msg.position = list(self.current_joint_positions)
+        msg.velocity = [0.0] * len(self.joint_names)
+        msg.effort = []
+        self.pub_joint_states.publish(msg)
+
+    def _publish_idle_state(self):
+        '''Timer callback: publish current state while idle so RViz stays in sync.'''
+        if self.robot_state == RobotState.IDLE or self.robot_state == RobotState.STOPPED:
+            self._publish_current_state()
 
     def send_trajectrory(self):
         '''

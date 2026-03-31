@@ -92,7 +92,7 @@ class ClassicPlanner(SinglePlanner):
             goal_request.target_pose.orientation.y,
             goal_request.target_pose.orientation.z,
             goal_request.target_pose.orientation.w
-        ])
+        ], q_xyzw=True)
 
         # Extract config parameters
         max_attempts = config.get('max_attempts', 1)
@@ -116,9 +116,12 @@ class ClassicPlanner(SinglePlanner):
                 )
 
                 # Create PoseCostMetric with hold_vec_weight
+                # hold_partial_pose=True: treat current EEF pose as waypoint
+                # and constrain the axes specified by hold_vec_weight throughout
+                # the entire trajectory (soft orientation constraint).
                 pose_cost_metric = PoseCostMetric(
                     hold_vec_weight=hold_vec,
-                    hold_partial_pose=False  # Just constrain specified axes
+                    hold_partial_pose=True
                 )
 
                 self.node.get_logger().info(

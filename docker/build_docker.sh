@@ -9,7 +9,7 @@
 ##   Automated mode:    ./build_docker.sh <gpu_choice> <mode_choice>
 ##
 ## Arguments:
-##   gpu_choice:   1=Ampere, 2=Ada Lovelace, 3=Turing, 4=Volta
+##   gpu_choice:   1=Ampere, 2=Ada Lovelace, 3=Blackwell, 4=Turing, 5=Volta
 ##   mode_choice:  1=DEV, 2=PROD
 ##
 ## Examples:
@@ -38,8 +38,9 @@ else
     echo "---------------------------------------"
     echo "1) Ampere (RTX 30XX series: 3060, 3070, 3080, 3090, A100)"
     echo "2) Ada Lovelace (RTX 40XX series: 4060, 4070, 4080, 4090)"
-    echo "3) Turing (RTX 20XX series: 2060, 2070, 2080)"
-    echo "4) Volta (Titan V, V100)"
+    echo "3) Blackwell (RTX 50XX series: 5070, 5080, 5090)"
+    echo "4) Turing (RTX 20XX series: 2060, 2070, 2080)"
+    echo "5) Volta (Titan V, V100)"
     echo ""
     read -p "Enter the number corresponding to your GPU: " gpu_choice
 fi
@@ -57,11 +58,16 @@ case $gpu_choice in
         echo "Selected: Ada Lovelace (Compute Capability 8.9, 9.0)"
         ;;
     3)
+        TORCH_CUDA_ARCH_LIST="10.0 12.0"
+        GPU_NAME="blackwell"
+        echo "Selected: Blackwell (Compute Capability 10.0, 12.0)"
+        ;;
+    4)
         TORCH_CUDA_ARCH_LIST="7.5"
         GPU_NAME="turing"
         echo "Selected: Turing (Compute Capability 7.5)"
         ;;
-    4)
+    5)
         TORCH_CUDA_ARCH_LIST="7.0"
         GPU_NAME="volta"
         echo "Selected: Volta (Compute Capability 7.0)"

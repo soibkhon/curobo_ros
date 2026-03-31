@@ -165,29 +165,35 @@ class RosServiceManager:
         Publishes the robot's collision spheres as markers for visualization in RViz.
         Useful for debugging and ensuring proper masking of the robot in the point cloud.
         """
-        # Get collision spheres from robot model manager
-        robot_spheres = self.robot_model_manager.get_collision_spheres()
+        try:
+            # Get collision spheres from robot model manager
+            robot_spheres = self.robot_model_manager.get_collision_spheres()
 
-        # Create marker array
-        marker_array = MarkerArray()
+            # Create marker array
+            marker_array = MarkerArray()
+            stamp = node.get_clock().now().to_msg()
 
-        for i, sphere in enumerate(robot_spheres):
-            marker = Marker()
-            marker.header.frame_id = self.config_manager.base_link
-            marker.type = Marker.SPHERE
-            marker.action = Marker.ADD
-            marker.id = i
-            marker.pose.position.x = sphere[0]
-            marker.pose.position.y = sphere[1]
-            marker.pose.position.z = sphere[2]
-            marker.scale.x = sphere[3] * 2  # Diameter
-            marker.scale.y = sphere[3] * 2
-            marker.scale.z = sphere[3] * 2
-            marker.color.a = 0.5  # Transparency
-            marker.color.r = 1.0
-            marker.color.g = 0.0
-            marker.color.b = 0.0
-            marker_array.markers.append(marker)
+            for i, sphere in enumerate(robot_spheres):
+                marker = Marker()
+                marker.header.frame_id = self.config_manager.base_link
+                marker.header.stamp = stamp
+                marker.ns = "collision_spheres"
+                marker.type = Marker.SPHERE
+                marker.action = Marker.ADD
+                marker.id = i
+                marker.pose.position.x = sphere[0]
+                marker.pose.position.y = sphere[1]
+                marker.pose.position.z = sphere[2]
+                marker.scale.x = sphere[3] * 2  # Diameter
+                marker.scale.y = sphere[3] * 2
+                marker.scale.z = sphere[3] * 2
+                marker.color.a = 0.5  # Transparency
+                marker.color.r = 1.0
+                marker.color.g = 0.0
+                marker.color.b = 0.0
+                marker_array.markers.append(marker)
 
-        # Publish marker array
-        self.publish_collision_spheres_pub.publish(marker_array)
+            # Publish marker array
+            self.publish_collision_spheres_pub.publish(marker_array)
+        except Exception as e:
+            node.get_logger().error(f"Failed to publish collision spheres: {e}", throttle_duration_sec=5.0)

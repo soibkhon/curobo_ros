@@ -30,6 +30,9 @@ class RobotModelManager:
         # Create CUDA robot model for kinematics
         self.kin_model = CudaRobotModel(robot_cfg.kinematics)
 
+        # Extract joint names from robot config
+        self.joint_names = self.kin_model.joint_names
+
         # Device configuration for operations
         self._ops_dtype = torch.float32
         self._device = torch.device('cuda')
@@ -61,7 +64,7 @@ class RobotModelManager:
                 dtype=self._ops_dtype,
                 device=self._device
             ),
-            joint_names=['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
+            joint_names=self.joint_names
         )
 
         # Compute kinematics state
@@ -86,5 +89,5 @@ class RobotModelManager:
                 dtype=self._ops_dtype,
                 device=self._device
             ),
-            joint_names=['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
+            joint_names=self.joint_names
         )

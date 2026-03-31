@@ -1,33 +1,32 @@
-# Jetson Thor / aarch64 DEV Dockerfile
-# Base: nvcr.io/nvidia/pytorch:25.08-py3 (Ubuntu 24.04, CUDA 13.0, aarch64)
-# Target GPU: Jetson Thor Blackwell GB10 → sm_110
+# Jetson Orin NX / aarch64 DEV Dockerfile
+# Base: NVIDIA L4T PyTorch (JetPack 6.x, Ubuntu 22.04, CUDA 12.x, PyTorch pre-built for aarch64)
+# Target GPU: Jetson Orin NX Ampere GA10B → sm_87
 #
-# Host: Ubuntu 24.04 + JetPack 7.x
-# Container: Ubuntu 24.04 + ROS 2 Jazzy
+# Host: Ubuntu 22.04 + JetPack 6.x
+# Container: Ubuntu 22.04 + ROS 2 Humble (same as x86 DEV image)
 #
-# Why not Ubuntu 22.04 + ROS Humble:
-#   CUDA 13.0 + Blackwell SM 11.0 PyTorch requires GLIBC 2.38 (Ubuntu 24.04)
-#   Ubuntu 22.04 only has GLIBC 2.35 → incompatible binaries
+# NOTE: Verify the exact L4T image tag on NGC before building:
+#   https://catalog.ngc.nvidia.com/orgs/nvidia/containers/l4t-pytorch/tags
+#   Use the latest r36.x.x tag available (JetPack 6.x, Ubuntu 22.04)
 #
 # Key differences from x86.dockerfile:
-#   - pytorch:25.08-py3 base (Ubuntu 24.04, no manual CUDA install)
-#   - No PyTorch upgrade (base already has aarch64 build)
+#   - L4T r36.x base (Ubuntu 22.04, no manual CUDA install needed)
+#   - No PyTorch upgrade (L4T ships aarch64-optimized build)
 #   - No hpcx (not available on Jetson) → standard openmpi
-#   - NVTX symlinks use aarch64-linux paths
+#   - NVTX symlinks use aarch64-linux paths (not x86_64-linux)
 #   - libusb installed via apt (no amd64 .deb)
-#   - ROS Jazzy instead of ROS Humble (Ubuntu 24.04)
-#   - lsb-release instead of lsb-core (removed in Ubuntu 24.04)
 #   - make -j8 instead of -j32 (Jetson has fewer CPU cores)
+#   - TORCH_CUDA_ARCH_LIST=8.7 for Orin NX Ampere GA10B
 
-FROM nvcr.io/nvidia/pytorch:25.08-py3 AS jetson_base
+FROM nvcr.io/nvidia/l4t-pytorch:r36.4.0-pth2.3-py3 AS jetson_base
 
-ARG TORCH_CUDA_ARCH_LIST="11.0"
+ARG TORCH_CUDA_ARCH_LIST="8.7"
 ENV TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST
 
 LABEL maintainer="Lucas Carpentier, Guillaume Dupoiron"
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-ARG ROS_DISTRO=jazzy
+ARG ROS_DISTRO=humble
 
 # GL libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -41,7 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
 
-# Timezone + build tools (lsb-core removed in Ubuntu 24.04, use lsb-release)
+# Timezone + build tools
 RUN apt-get update && apt-get install -y \
     tzdata \
     software-properties-common \
@@ -58,10 +57,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     git-lfs \
+    glmark2 \
     iputils-ping \
     libeigen3-dev \
     libssl-dev \
-    lsb-release \
+    lsb-core \
     make \
     openssh-client \
     openssh-server \
@@ -190,13 +190,25 @@ RUN python3 -m pip install "robometrics[evaluator] @ git+https://github.com/fish
 # libusb via apt (no amd64 .deb on aarch64)
 RUN apt-get update && apt-get install -y libusb-1.0-0 && rm -rf /var/lib/apt/lists/*
 
-##### Installing ROS Jazzy (Ubuntu 24.04 / Noble) ######
+##### Installing ROS Humble ######
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     gnupg2 \
     lsb-release \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add - \
+    && sh -c 'echo "deb http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros2-latest.list'
+
+RUN apt-get update && apt-get install -y \
+    python3-rosdep \
+    ros-humble-joint-state-publisher \
+    ros-humble-joint-state-publisher-gui \
+    ros-humble-nav2-msgs \
+    ros-humble-moveit \
+    ros-humble-realsense2-* \
+    ros-humble-librealsense2* \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*
@@ -208,21 +220,11 @@ RUN apt update && apt install curl -y && \
     apt install /tmp/ros2-apt-source.deb
 
 RUN apt-get update && apt-get install -y \
-    python3-rosdep \
-    ros-jazzy-joint-state-publisher \
-    ros-jazzy-joint-state-publisher-gui \
-    ros-jazzy-nav2-msgs \
-    ros-jazzy-moveit \
-    ros-jazzy-realsense2-* \
-    ros-jazzy-librealsense2* \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y \
     python3-argcomplete \
     python3-colcon-common-extensions \
-    ros-jazzy-desktop \
-    ros-jazzy-pcl-ros \
-    ros-jazzy-rviz2 \
+    ros-humble-desktop \
+    ros-humble-pcl-ros \
+    ros-humble-rviz2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/ros2_ws/src
@@ -243,7 +245,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libgl1 \
     libgomp1 \
     python3-pip \
-    ros-jazzy-tf-transformations \
+    ros-humble-tf-transformations \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip && \
@@ -253,26 +255,25 @@ RUN python3 -m pip install --no-cache-dir --force-reinstall --no-deps \
 
 WORKDIR /home/ros2_ws/src
 
-RUN git clone -b jazzy https://github.com/Box-Robotics/ros2_numpy.git || \
-    git clone https://github.com/Box-Robotics/ros2_numpy.git
+RUN git clone -b humble https://github.com/Box-Robotics/ros2_numpy.git
 
 # Build workspace
 WORKDIR /home/ros2_ws
-RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && \
+RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
     colcon build"
 
-RUN source /opt/ros/jazzy/setup.bash && \
+RUN source /opt/ros/humble/setup.bash && \
     cd /home/ros2_ws && \
     . install/local_setup.bash
 
 WORKDIR /home/ros2_ws
 
-RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc && \
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
     echo "source /home/ros2_ws/install/setup.bash" >> ~/.bashrc
 
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
-RUN apt-get update && apt-get install -y ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-cyclonedds
+RUN apt-get update && apt-get install -y ros-humble-rmw-cyclonedds-cpp ros-humble-cyclonedds
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 

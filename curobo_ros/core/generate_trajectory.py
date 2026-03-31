@@ -90,7 +90,7 @@ class CuRoboTrajectoryMaker(Node):
             request.target_pose.position.x, request.target_pose.position.y, request.target_pose.position.z,
             request.target_pose.orientation.x, request.target_pose.orientation.y,
             request.target_pose.orientation.z, request.target_pose.orientation.w
-        ])
+        ], q_xyzw=True)
 
         # get goal pose and generate traj
         try:

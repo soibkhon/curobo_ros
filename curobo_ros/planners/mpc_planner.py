@@ -118,7 +118,7 @@ class MPCPlanner(TrajectoryPlanner):
             goal_request.target_pose.orientation.y,
             goal_request.target_pose.orientation.z,
             goal_request.target_pose.orientation.w
-        ])
+        ], q_xyzw=True)
 
         # Store for execution
         self.start_state = start_state

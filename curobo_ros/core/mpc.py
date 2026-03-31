@@ -65,7 +65,7 @@ class CuroboMPC(Node):
             goal_handle.request.target_pose.position.x, goal_handle.request.target_pose.position.y, goal_handle.request.target_pose.position.z,
             goal_handle.request.target_pose.orientation.x, goal_handle.request.target_pose.orientation.y,
             goal_handle.request.target_pose.orientation.z, goal_handle.request.target_pose.orientation.w
-        ])
+        ], q_xyzw=True)
 
         goal = Goal(
             current_state=self.start_state,
