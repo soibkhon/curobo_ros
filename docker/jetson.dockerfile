@@ -1,13 +1,11 @@
-# Jetson Orin NX / aarch64 DEV Dockerfile
-# Base: NVIDIA L4T PyTorch (JetPack 6.x, Ubuntu 22.04, CUDA 12.x, PyTorch pre-built for aarch64)
-# Target GPU: Jetson Orin NX Ampere GA10B → sm_87
-#
-# Host: Ubuntu 22.04 + JetPack 6.x
-# Container: Ubuntu 22.04 + ROS 2 Humble (same as x86 DEV image)
+# Jetson Thor / aarch64 DEV Dockerfile
+# Base: NVIDIA L4T PyTorch r36.x (Ubuntu 22.04 container on JetPack 7.x host)
+# Ubuntu 22.04 inside container → ROS 2 Humble works
+# CUDA from host JetPack 7.x mounted via nvidia-container-runtime
 #
 # NOTE: Verify the exact L4T image tag on NGC before building:
 #   https://catalog.ngc.nvidia.com/orgs/nvidia/containers/l4t-pytorch/tags
-#   Use the latest r36.x.x tag available (JetPack 6.x, Ubuntu 22.04)
+#   Use the latest r36.x.x tag available (JetPack 6.x base, Ubuntu 22.04)
 #
 # Key differences from x86.dockerfile:
 #   - L4T r36.x base (Ubuntu 22.04, no manual CUDA install needed)
@@ -16,7 +14,6 @@
 #   - NVTX symlinks use aarch64-linux paths (not x86_64-linux)
 #   - libusb installed via apt (no amd64 .deb)
 #   - make -j8 instead of -j32 (Jetson has fewer CPU cores)
-#   - TORCH_CUDA_ARCH_LIST=8.7 for Orin NX Ampere GA10B
 
 FROM nvcr.io/nvidia/l4t-pytorch:r36.4.0-pth2.3-py3 AS jetson_base
 

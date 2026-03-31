@@ -1,11 +1,11 @@
-# Jetson Orin NX Installation Guide
+# Jetson Thor Installation Guide
 
-This guide covers running curobo_ros on a **Jetson Orin NX** in DEV mode.
+This guide covers running curobo_ros on a **Jetson Thor** in DEV mode.
 
 **Setup:**
-- Host: Ubuntu 22.04 + JetPack 6.x
+- Host: Ubuntu 22.04 + JetPack 7.x
 - Container: Ubuntu 22.04 + ROS 2 Humble (same as x86 DEV image)
-- GPU: Ampere GA10B (sm_87)
+- GPU: Ampere GA10B (sm_87 (verify for Thor))
 
 ---
 
@@ -13,7 +13,7 @@ This guide covers running curobo_ros on a **Jetson Orin NX** in DEV mode.
 
 | Requirement | Notes |
 |---|---|
-| **Jetson Orin NX** with JetPack 6.x | Host OS: Ubuntu 22.04 |
+| **Jetson Thor** with JetPack 7.x | Host OS: Ubuntu 22.04 |
 | **~40 GB free disk** | Build takes more space on aarch64 |
 | **Docker** with NVIDIA runtime | Comes with JetPack — verify below |
 | **NGC account + API key** | Needed to pull the L4T base image |
@@ -154,7 +154,7 @@ bash build_docker_jetson.sh
 **What happens during the build:**
 1. Pulls L4T PyTorch base (Ubuntu 22.04, CUDA, PyTorch for aarch64)
 2. Installs build tools and OpenMPI
-3. Builds cuRobo from source (compiled for sm_87)
+3. Builds cuRobo from source (compiled for sm_87 (verify for Thor))
 4. Builds nvblox v0.0.5 with CUDA compatibility patches
 5. Builds nvblox_torch
 6. Installs ROS 2 Humble
