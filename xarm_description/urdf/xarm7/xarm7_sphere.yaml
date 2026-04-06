@@ -1,0 +1,281 @@
+robot_cfg:
+  kinematics:
+    use_usd_kinematics: false
+    usd_path: ''
+    usd_robot_root: ''
+    isaac_usd_path: ''
+    usd_flip_joints: {}
+    usd_flip_joint_limits: []
+    urdf_path: /home/ros2_ws/src/xarm_description/urdf/xarm7/xarm7.urdf
+    asset_root_path: ''
+    base_link: link_base
+    ee_link: link_eef
+    link_names: null
+    lock_joints:
+      drive_joint: 0.0
+    extra_links: null
+    collision_link_names:
+    - camera_link
+    - left_finger
+    - left_outer_knuckle
+    - link1
+    - link2
+    - link3
+    - link4
+    - link5
+    - link6
+    - link7
+    - link_base
+    - right_finger
+    - right_outer_knuckle
+    - xarm_gripper_base_link
+    collision_spheres:
+      camera_link:
+      - center:
+        - -0.009999999999999997
+        - -0.02
+        - 0
+        radius: 0.05
+      left_finger:
+      - center:
+        - 0
+        - -0.020000000000000004
+        - 0.04
+        radius: 0.03
+      left_outer_knuckle:
+      - center:
+        - 0
+        - 0.03
+        - 0.03
+        radius: 0.03
+      link1:
+      - center:
+        - 0
+        - 0.005
+        - -0.09
+        radius: 0.06
+      - center:
+        - 0
+        - 0
+        - -0.01
+        radius: 0.07
+      link2:
+      - center:
+        - 0
+        - -3.469446951953614e-18
+        - 0.09
+        radius: 0.06
+      - center:
+        - 0
+        - -0.07
+        - 0.09
+        radius: 0.06
+      - center:
+        - 0
+        - -0.11999999999999998
+        - 0.09
+        radius: 0.06
+      - center:
+        - 0
+        - -0.12
+        - -3.469446951953614e-18
+        radius: 0.06
+      - center:
+        - 0
+        - -0.12
+        - 0.03
+        radius: 0.06
+      link3:
+      - center:
+        - 0
+        - 0
+        - -0.08999999999999998
+        radius: 0.06
+      - center:
+        - 0
+        - 0.03
+        - -0.019999999999999997
+        radius: 0.06
+      - center:
+        - 0.05
+        - -0.010000000000000004
+        - 0
+        radius: 0.05
+      - center:
+        - 0.05
+        - 0.03
+        - 0
+        radius: 0.05
+      link4:
+      - center:
+        - 0.08
+        - -0.09
+        - -0.01
+        radius: 0.055
+      - center:
+        - -3.469446951953614e-18
+        - 0
+        - 0.07
+        radius: 0.05
+      - center:
+        - 0.03
+        - -0.03
+        - 0.08
+        radius: 0.05
+      - center:
+        - 0.08
+        - -0.08
+        - 0.08
+        radius: 0.05
+      - center:
+        - 0.08
+        - -0.08
+        - 0.019999999999999997
+        radius: 0.05
+      - center:
+        - 0.09
+        - -0.12999999999999998
+        - 0
+        radius: 0.05
+      link5:
+      - center:
+        - 0
+        - 0
+        - -0.14
+        radius: 0.055
+      - center:
+        - -3.469446951953614e-18
+        - 0.05
+        - -0.010000000000000024
+        radius: 0.055
+      - center:
+        - -3.469446951953614e-18
+        - 0.05
+        - -0.09000000000000002
+        radius: 0.055
+      link6:
+      - center:
+        - 0.07
+        - 0.05000000000000001
+        - 0
+        radius: 0.055
+      - center:
+        - -0.010000000000000004
+        - 0.010000000000000004
+        - 0.01
+        radius: 0.055
+      - center:
+        - 0.05
+        - 0.010000000000000004
+        - 0.01
+        radius: 0.055
+      - center:
+        - 0.09
+        - 3.469446951953614e-18
+        - 0
+        radius: 0.055
+      link7:
+      - center:
+        - -0.010000000000000004
+        - -3.469446951953614e-18
+        - 0
+        radius: 0.045
+      link_base:
+      - center:
+        - 0
+        - 0
+        - 0.09000000000000001
+        radius: 0.05
+      right_finger:
+      - center:
+        - 0
+        - 0.020000000000000004
+        - 0.04
+        radius: 0.03
+      right_outer_knuckle:
+      - center:
+        - 0
+        - -0.030000000000000006
+        - 0.03
+        radius: 0.03
+      xarm_gripper_base_link:
+      - center:
+        - -3.469446951953614e-18
+        - 3.469446951953614e-18
+        - 0.060000000000000005
+        radius: 0.06
+    collision_sphere_buffer: {}
+    extra_collision_spheres: {}
+    self_collision_ignore:
+      link_base:
+      - link1
+      - left_finger
+      - right_finger
+      - xarm_gripper_base_link
+      link1:
+      - link2
+      - link_base
+      - right_finger
+      - right_outer_knuckle
+      - xarm_gripper_base_link
+      link2:
+      - link3
+      link3:
+      - link4
+      link4:
+      - link5
+      link5:
+      - link6
+      link6:
+      - link7
+      - xarm_gripper_base_link
+      - camera_link
+      link7:
+      - xarm_gripper_base_link
+      - camera_link
+      xarm_gripper_base_link:
+      - left_outer_knuckle
+      - right_outer_knuckle
+      - camera_link
+      left_finger:
+      - left_outer_knuckle
+      right_finger:
+      - right_outer_knuckle
+    self_collision_buffer: {}
+    use_global_cumul: true
+    mesh_link_names: null
+    cspace:
+      joint_names:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
+      retract_config:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - -1.5708
+      - 0
+      null_space_weight:
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      cspace_distance_weight:
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      max_jerk: 5e+02
+      max_acceleration: 2e+01
